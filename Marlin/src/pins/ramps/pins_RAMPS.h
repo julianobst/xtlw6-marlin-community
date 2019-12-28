@@ -160,9 +160,6 @@
 //#ifndef E2_CS_PIN
   //#define E2_CS_PIN        49
 //#endif
-
-
-
 //
 // Temperature Sensors
 //
@@ -588,7 +585,10 @@
       #define BEEPER_PIN        37
       #define BTN_ENC           35
       #define SD_DETECT_PIN     49
-      #define KILL_PIN          41
+
+      #ifndef KILL_PIN
+        #define KILL_PIN        41
+      #endif
 
       #if ENABLED(MKS_MINI_12864)   // Added in Marlin 1.1.6
 
@@ -602,7 +602,7 @@
         //#define LCD_SCREEN_ROT_270
 
         // not connected to a pin
-        #define LCD_BACKLIGHT_PIN 65   // backlight LED on A11/D65
+        #define LCD_BACKLIGHT_PIN -1  // 65 (MKS mini12864 can't adjust backlight by software!)
 
         #define BTN_EN1         31
         #define BTN_EN2         33
