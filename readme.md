@@ -1,7 +1,19 @@
-# XTLW6 Marlin Community Firmware
+# XTLW6 Marlin Community Firmware based on Marlin 2.0.3
 For further information about the amazing Marlin project please visit: http://www.marlinfw.org/
 
 Special thanks to *Her Mann* from the *XTLW6 IDEX 3D printer* Facebook group who shared the sources with the community.
+
+## Important update information
+If you want to update your printers firmware to the community firmware based on Marlin 2.0.3, you must initialize your EEPROM after the update. This will delete all your settings and restore the defaults from the firmware.
+
+It's highly recommend to read your current eeprom settings with G-Code ```M503``` http://marlinfw.org/docs/gcode/M503.html and copy & paste the output into a text file.
+
+Therefore connect your printer with your PC via USB, start the Arduino IDE and open the serial Monitor ```Tools -> Serial Monitor``` or use the shortcut ```CTRL+SHIFT+M```.
+At the top of the serial monitor, enter ```M503``` into the input text field and press enter or click ```Send```.
+Copy the output from the text field below and paste it into a simple text file.
+Now you have saved your eeprom settings and you can restore them via the printers display or depending G-Codes, which are mentioned before your settings value as Mxxx G-Code.
+
+For more detailed information about backup your eeprom settings, take a look at this youtube video: https://www.youtube.com/watch?v=Jw-ZSkzd-uY
 
 ## Build and upload
 
