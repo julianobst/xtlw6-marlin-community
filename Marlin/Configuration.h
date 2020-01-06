@@ -731,7 +731,7 @@
  *                                      X, Y, Z, E0 [, E1[, E2...]]
  */
 //#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 400, 95 }
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 320, 320, 1600, 402.5 }  // TMC2209 with 64 microsteps, the original A4988 has used 16 micro steps; 318.6 steps/mm for titan gear extruder with 1.8°/step stepper motor
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 160, 160, 800, 402.5 }  // TMC2209 with 64 microsteps, the original A4988 has used 16 micro steps; 318.6 steps/mm for titan gear extruder with 1.8°/step stepper motor
 
 /**
  * Default Max Feed Rate (mm/s)
