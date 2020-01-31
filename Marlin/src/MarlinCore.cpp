@@ -28,7 +28,7 @@
  *  - https://github.com/grbl/grbl
  */
 
-#include "Marlin.h"
+#include "MarlinCore.h"
 
 #include "core/utility.h"
 #include "lcd/ultralcd.h"
@@ -177,11 +177,12 @@
   #include "feature/prusa_MMU2/mmu2.h"
 #endif
 
-#if HAS_DRIVER(L6470)
-  #include "libs/L6470/L6470_Marlin.h"
+#if HAS_L64XX
+  #include "libs/L64XX/L64XX_Marlin.h"
 #endif
 
 const char NUL_STR[] PROGMEM = "",
+           M112_KILL_STR[] PROGMEM = "M112 Shutdown",
            G28_STR[] PROGMEM = "G28",
            M21_STR[] PROGMEM = "M21",
            M23_STR[] PROGMEM = "M23 %s",
@@ -290,7 +291,7 @@ void quickstop_stepper() {
 }
 
 void enable_e_steppers() {
-  #define _ENA_E(N) enable_E##N();
+  #define _ENA_E(N) ENABLE_AXIS_E##N();
   REPEAT(E_STEPPERS, _ENA_E)
 }
 
@@ -298,28 +299,28 @@ void enable_all_steppers() {
   #if ENABLED(AUTO_POWER_CONTROL)
     powerManager.power_on();
   #endif
-  enable_X();
-  enable_Y();
-  enable_Z();
+  ENABLE_AXIS_X();
+  ENABLE_AXIS_Y();
+  ENABLE_AXIS_Z();
   enable_e_steppers();
 }
 
 void disable_e_steppers() {
-  #define _DIS_E(N) disable_E##N();
+  #define _DIS_E(N) DISABLE_AXIS_E##N();
   REPEAT(E_STEPPERS, _DIS_E)
 }
 
 void disable_e_stepper(const uint8_t e) {
-  #define _CASE_DIS_E(N) case N: disable_E##N(); break;
+  #define _CASE_DIS_E(N) case N: DISABLE_AXIS_E##N(); break;
   switch (e) {
     REPEAT(EXTRUDERS, _CASE_DIS_E)
   }
 }
 
 void disable_all_steppers() {
-  disable_X();
-  disable_Y();
-  disable_Z();
+  DISABLE_AXIS_X();
+  DISABLE_AXIS_Y();
+  DISABLE_AXIS_Z();
   disable_e_steppers();
 }
 
@@ -406,7 +407,7 @@ void startOrResumeJob() {
     thermalManager.zero_fan_speeds();
     wait_for_heatup = false;
     #if ENABLED(POWER_LOSS_RECOVERY)
-      card.removeJobRecoveryFile();
+      recovery.purge();
     #endif
     #ifdef EVENT_GCODE_SD_STOP
       queue.inject_P(PSTR(EVENT_GCODE_SD_STOP));
@@ -460,13 +461,13 @@ void manage_inactivity(const bool ignore_stepper_queue/*=false*/) {
       if (!already_shutdown_steppers) {
         already_shutdown_steppers = true;  // L6470 SPI will consume 99% of free time without this
         #if ENABLED(DISABLE_INACTIVE_X)
-          disable_X();
+          DISABLE_AXIS_X();
         #endif
         #if ENABLED(DISABLE_INACTIVE_Y)
-          disable_Y();
+          DISABLE_AXIS_Y();
         #endif
         #if ENABLED(DISABLE_INACTIVE_Z)
-          disable_Z();
+          DISABLE_AXIS_Z();
         #endif
         #if ENABLED(DISABLE_INACTIVE_E)
           disable_e_steppers();
@@ -541,11 +542,11 @@ void manage_inactivity(const bool ignore_stepper_queue/*=false*/) {
       #if ENABLED(SWITCHING_EXTRUDER)
         bool oldstatus;
         switch (active_extruder) {
-          default: oldstatus = E0_ENABLE_READ(); enable_E0(); break;
+          default: oldstatus = E0_ENABLE_READ(); ENABLE_AXIS_E0(); break;
           #if E_STEPPERS > 1
-            case 2: case 3: oldstatus = E1_ENABLE_READ(); enable_E1(); break;
+            case 2: case 3: oldstatus = E1_ENABLE_READ(); ENABLE_AXIS_E1(); break;
             #if E_STEPPERS > 2
-              case 4: case 5: oldstatus = E2_ENABLE_READ(); enable_E2(); break;
+              case 4: case 5: oldstatus = E2_ENABLE_READ(); ENABLE_AXIS_E2(); break;
             #endif // E_STEPPERS > 2
           #endif // E_STEPPERS > 1
         }
@@ -553,7 +554,7 @@ void manage_inactivity(const bool ignore_stepper_queue/*=false*/) {
         bool oldstatus;
         switch (active_extruder) {
           default:
-          #define _CASE_EN(N) case N: oldstatus = E##N##_ENABLE_READ(); enable_E##N(); break;
+          #define _CASE_EN(N) case N: oldstatus = E##N##_ENABLE_READ(); ENABLE_AXIS_E##N(); break;
           REPEAT(E_STEPPERS, _CASE_EN);
         }
       #endif
@@ -605,7 +606,7 @@ void manage_inactivity(const bool ignore_stepper_queue/*=false*/) {
   #endif
 
   #if ENABLED(MONITOR_L6470_DRIVER_STATUS)
-    L6470.monitor_driver();
+    L64xxManager.monitor_driver();
   #endif
 
   // Limit check_axes_activity frequency to 10Hz
@@ -618,7 +619,7 @@ void manage_inactivity(const bool ignore_stepper_queue/*=false*/) {
   #if PIN_EXISTS(FET_SAFETY)
     static millis_t FET_next;
     if (ELAPSED(ms, FET_next)) {
-      FET_next = ms + FET_SAFETY_DELAY;  // 2uS pulse every FET_SAFETY_DELAY mS
+      FET_next = ms + FET_SAFETY_DELAY;  // 2µs pulse every FET_SAFETY_DELAY mS
       OUT_WRITE(FET_SAFETY_PIN, !FET_SAFETY_INVERTED);
       DELAY_US(2);
       WRITE(FET_SAFETY_PIN, FET_SAFETY_INVERTED);
@@ -822,8 +823,12 @@ void setup() {
 
   HAL_init();
 
-  #if HAS_DRIVER(L6470)
-    L6470.init();         // setup SPI and then init chips
+  #if HAS_L64XX
+    L64xxManager.init();  // Set up SPI, init drivers
+  #endif
+
+  #if ENABLED(SMART_EFFECTOR) && PIN_EXISTS(SMART_EFFECTOR_MOD)
+    OUT_WRITE(SMART_EFFECTOR_MOD_PIN, LOW);   // Put Smart Effector into NORMAL mode
   #endif
 
   #if ENABLED(MAX7219_DEBUG)
@@ -1128,10 +1133,9 @@ void setup() {
  *  - Call inactivity manager
  */
 void loop() {
+  do {
 
-  for (;;) {
-
-    idle(); // Do an idle first so boot is slightly faster
+    idle();
 
     #if ENABLED(SDSUPPORT)
       card.checkautostart();
@@ -1141,5 +1145,10 @@ void loop() {
     queue.advance();
 
     endstops.event_handler();
-  }
+
+  } while (false        // Return to caller for best compatibility
+    #ifdef __AVR__
+      || true           // Loop forever on slower (AVR) boards
+    #endif
+  );
 }
